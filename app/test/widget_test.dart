@@ -13,6 +13,7 @@ import 'package:naduri_alimi/services/feed_service.dart';
 import 'package:naduri_alimi/services/prefs_service.dart';
 
 import 'feed_parse_test.dart' show sampleFeed;
+import 'places_tab_test.dart' show FakePlacesService;
 
 class FakeFeedService extends FeedService {
   final bool fail;
@@ -62,6 +63,7 @@ Widget app({bool fail = false, DateTime? clock, FeedService? svc}) => MaterialAp
       home: HomeScreen(
         feedService: svc ?? FakeFeedService(fail: fail),
         prefsService: FakePrefsService(),
+        placesService: FakePlacesService(),
         // 2026-07-18(토) — sampleFeed의 인형극(7/18~19)이 '이번 주말'에 걸린다
         clock: () => clock ?? DateTime(2026, 7, 18, 10, 0),
       ),
@@ -114,7 +116,11 @@ void main() {
     var clock = DateTime(2026, 7, 18, 9, 0);
     final feedSvc = FakeFeedService();
     await tester.pumpWidget(MaterialApp(
-      home: HomeScreen(feedService: feedSvc, prefsService: FakePrefsService(), clock: () => clock),
+      home: HomeScreen(
+          feedService: feedSvc,
+          prefsService: FakePrefsService(),
+          placesService: FakePlacesService(),
+          clock: () => clock),
     ));
     await tester.pump();
     await tester.pump();

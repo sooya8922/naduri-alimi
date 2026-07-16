@@ -1,0 +1,38 @@
+name: refresh-places
+
+# 월 1회 장소 데이터 갱신 (상설 장소라 이 주기면 충분). 매월 1일 KST 07:00.
+# TourAPI(apis.data.go.kr/B551011)는 GHA에서 호출 가능(KCISA와 같은 게이트웨이 — 실측).
+on:
+  schedule:
+    - cron: "0 22 1 * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: places
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Refresh places.json
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+        run: python3 places.py   # sanity 실패 시 exit 1 → 커밋 안 됨
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add places.json places_state.json
+          git commit -m "places $(date -u +%FT%TZ)" || echo "변화 없음 - 커밋 스킵"
+          git push || echo "push 실패 (다음 회차에 재시도)"

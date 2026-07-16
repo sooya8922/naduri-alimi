@@ -6,7 +6,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:naduri_alimi/models/event.dart';
+import 'package:naduri_alimi/models/place.dart';
 import 'package:naduri_alimi/services/feed_service.dart';
+import 'package:naduri_alimi/services/places_service.dart';
 
 /// 라이브 feed 통합 테스트 — 실제 raw.githubusercontent.com 의 feed.json이
 /// 현재 앱 모델로 파싱되는지 CI에서 확인(스키마 드리프트 조기 발견 — chwiso 패턴).
@@ -26,5 +28,17 @@ void main() {
         reason: '지역 누락: $areas');
     // 아이 행사가 실제로 있는지(이 앱의 존재 이유)
     expect(feed.events.where((e) => e.kid).length, greaterThan(20));
+  }, timeout: const Timeout(Duration(minutes: 1)));
+
+  test('라이브 places 파싱 + 최소 볼륨', () async {
+    final client = HttpClient();
+    final req = await client.getUrl(Uri.parse(PlacesService.placesUrl));
+    final res = await req.close();
+    expect(res.statusCode, 200);
+    final body = await res.transform(utf8.decoder).join();
+    final places = Places.fromJson(json.decode(body) as Map<String, dynamic>);
+    expect(places.places.length, greaterThan(80));
+    final areas = places.places.map((p) => p.area).toSet();
+    expect(areas.containsAll({'서울', '경기', '인천'}), true, reason: '지역 누락: $areas');
   }, timeout: const Timeout(Duration(minutes: 1)));
 }

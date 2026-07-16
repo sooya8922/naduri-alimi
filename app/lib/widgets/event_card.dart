@@ -1,18 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../logic/map_links.dart';
 import '../models/event.dart';
-
-/// 지도 열기 후보 URL 목록(순수 함수, 테스트 대상). 우선순위: 카카오맵 → 네이버맵 → 구글지도(웹).
-/// 앞의 두 개는 '앱 스킴'이라 canLaunchUrl로 설치 여부를 먼저 판정 → 없으면 다음으로
-/// 조용히 폴백. 마지막 구글 웹은 항상 열리는 최종 안전망. (chwiso 검증 로직 그대로)
-List<String> buildMapCandidates(double lng, double lat) {
-  return [
-    'kakaomap://look?p=$lat,$lng',
-    'nmap://place?lat=$lat&lng=$lng&name=%ED%96%89%EC%82%AC%20%EC%9C%84%EC%B9%98&appname=com.sooya8922.naduri',
-    'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
-  ];
-}
 
 /// 행사 카드 — 리스트의 기본 단위.
 class EventCard extends StatelessWidget {
@@ -144,7 +134,14 @@ class EventCard extends StatelessWidget {
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.place_outlined),
                     label: const Text('위치 보기'),
-                    onPressed: () => _openMap(ctx, e),
+                    onPressed: () async {
+                      // hasLocation 가드로 non-null 보장
+                      final ok = await launchMap(e.lng!, e.lat!);
+                      if (!ok && ctx.mounted) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(content: Text('지도 앱을 열 수 없어요')));
+                      }
+                    },
                   ),
                 ),
               ],
@@ -153,26 +150,5 @@ class EventCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  /// 좌표를 지도로 연다. 카카오맵→네이버맵→구글지도 순서로, 앱 스킴은 설치돼 있을 때만 실행.
-  /// 각 시도를 try-catch로 감싸 조용히 다음 후보로 폴백(chwiso 검증 로직).
-  Future<void> _openMap(BuildContext context, Event e) async {
-    final lat = e.lat!, lng = e.lng!; // hasLocation 가드로 non-null 보장
-    final candidates = buildMapCandidates(lng, lat);
-    for (var i = 0; i < candidates.length; i++) {
-      final uri = Uri.parse(candidates[i]);
-      final isLast = i == candidates.length - 1;
-      try {
-        if (isLast || await canLaunchUrl(uri)) {
-          if (await launchUrl(uri, mode: LaunchMode.externalApplication)) return;
-        }
-      } catch (_) {
-        // 이 후보 실패 → 다음 후보로 (조용히)
-      }
-    }
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('지도 앱을 열 수 없어요')));
-    }
   }
 }

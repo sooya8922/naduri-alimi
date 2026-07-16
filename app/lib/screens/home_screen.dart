@@ -6,15 +6,18 @@ import '../logic/notif_planner.dart';
 import '../models/event.dart';
 import '../services/feed_service.dart';
 import '../services/notification_service.dart';
+import '../services/places_service.dart';
 import '../services/prefs_service.dart';
 import '../widgets/event_card.dart';
 import '../widgets/filter_sheet.dart';
+import 'places_tab.dart';
 
-/// 홈 — 탭 3개: 이번 주말 / 다가오는 / 새 소식
+/// 홈 — 탭 4개: 이번 주말 / 다가오는 / 새 소식 / 가볼 곳
 /// 서비스는 주입 가능(테스트에서 페이크로 교체 — 네트워크/플러그인 비의존).
 class HomeScreen extends StatefulWidget {
   final FeedService? feedService;
   final PrefsService? prefsService;
+  final PlacesService? placesService;
 
   /// feed 로드/필터 변경 성공 시 호출 — main이 알림 점검을 꽂는다(테스트에선 null).
   final Future<void> Function(Feed feed)? onFeedLoaded;
@@ -26,7 +29,13 @@ class HomeScreen extends StatefulWidget {
   final DateTime Function()? clock;
 
   const HomeScreen(
-      {super.key, this.feedService, this.prefsService, this.onFeedLoaded, this.initError, this.clock});
+      {super.key,
+      this.feedService,
+      this.prefsService,
+      this.placesService,
+      this.onFeedLoaded,
+      this.initError,
+      this.clock});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -179,7 +188,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('나들이 알리미'),
@@ -198,6 +207,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             Tab(text: '이번 주말'),
             Tab(text: '다가오는'),
             Tab(text: '새 소식'),
+            Tab(text: '가볼 곳'),
           ]),
         ),
         body: _body(),
@@ -266,6 +276,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             _eventList(weekend, empty: '조건에 맞는 이번 주말 행사가 없어요'),
             _eventList(upcoming, empty: '조건에 맞는 행사가 없어요'),
             _newsList(feed),
+            // 장소는 행사 feed와 별개 트랙 — 필터(구독조건)와 무관하게 탭 안에서 자체 필터
+            PlacesTab(service: widget.placesService),
           ]),
         ),
       ],
