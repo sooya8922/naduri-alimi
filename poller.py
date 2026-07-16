@@ -419,6 +419,13 @@ def main():
         state["baseline_at"] = now_s
     baseline_at = state.get("baseline_at", "0000-01-01 00:00:00")
 
+    # 직전 피드 — fstvl 이월용 (api.data.go.kr은 GHA 해외IP에서 차단(https도 URLError 실측)
+    # → 분기 갱신 정적 데이터라 로컬 실행 때 채워진 것을 이월하고, 종료일 필터로 자연 만료시킨다)
+    try:
+        prev_events = json.load(open(FEED_PATH, encoding="utf-8")).get("events", [])
+    except Exception:
+        prev_events = []
+
     budget = [DETAIL_BUDGET]
     all_events, status = [], {}
     for name, fn in (("seoul", lambda: fetch_seoul(today, horizon)),
@@ -431,8 +438,14 @@ def main():
             status[name] = f"ok:{len(evs)}"
         except Exception as ex:
             # 한 소스 장애가 전체 피드를 막지 않는다. 단 아래 sanity에서 최소량은 보장.
-            status[name] = f"error:{type(ex).__name__}"
             print(f"[warn] {name} 수집 실패: {type(ex).__name__}: {str(ex)[:120]}", file=sys.stderr)
+            if name == "fstvl":
+                carried = [e for e in prev_events
+                           if e.get("source") == "fstvl" and e.get("end", "") >= today]
+                all_events.extend(carried)
+                status[name] = f"carry:{len(carried)}"
+            else:
+                status[name] = f"error:{type(ex).__name__}"
 
     events = merge(all_events)
     events.sort(key=lambda e: (e["start"], e["title"]))
