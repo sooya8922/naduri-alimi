@@ -242,6 +242,19 @@ class _PlaceCard extends StatelessWidget {
                       mode: LaunchMode.externalApplication),
                 ),
               ),
+              // 네이버 입장권 — 수동 매핑된 대표 명소만 노출(naver_links.json → places.json)
+              if (p.naver.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.tonalIcon(
+                    icon: const Icon(Icons.confirmation_number_outlined),
+                    label: const Text('네이버 입장권'),
+                    onPressed: () => launchUrl(Uri.parse(p.naver),
+                        mode: LaunchMode.externalApplication),
+                  ),
+                ),
+              ],
               const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
@@ -253,6 +266,12 @@ class _PlaceCard extends StatelessWidget {
                       Uri.parse('https://search.naver.com/search.naver?query=${Uri.encodeQueryComponent(p.title)}'),
                       mode: LaunchMode.externalApplication),
                 ),
+              ),
+              // 대가성 표시(공정위) — 제휴 링크가 있는 시트에 상시 노출
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text('입장권 링크는 제휴 링크로, 구매 시 수수료를 받을 수 있어요',
+                    style: TextStyle(fontSize: 11, color: Theme.of(ctx).colorScheme.onSurfaceVariant)),
               ),
               if (p.hasLocation) ...[
                 const SizedBox(height: 8),

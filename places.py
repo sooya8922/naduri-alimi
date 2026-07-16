@@ -176,12 +176,22 @@ def detail_intro(state, cid, ct, budget):
         return {}
 
 
+def load_naver_links():
+    """naver_links.json — 장소명 부분문자열 → 네이버 쇼핑커넥트 링크(수동 매핑). '_' 키는 주석."""
+    try:
+        j = json.load(open(os.path.join(BASE_DIR, "naver_links.json"), encoding="utf-8"))
+        return {k: v for k, v in j.items() if not k.startswith("_") and str(v).startswith("http")}
+    except Exception:
+        return {}
+
+
 def main():
     now = datetime.now(KST).replace(tzinfo=None)
     try:
         state = json.load(open(STATE_PATH, encoding="utf-8"))
     except Exception:
         state = {}
+    naver_links = load_naver_links()
 
     rows = fetch_lists()
     print(f"목록 수집: {len(rows)}건 (지역 3 × 타입 3)")
@@ -232,6 +242,7 @@ def main():
             "exp": det.get("exp", "")[:120],
             "rest": det.get("rest", "")[:80],
             "parking": det.get("parking", "")[:80],
+            "naver": next((v for k, v in naver_links.items() if k in title), ""),
             "score": score,
         })
 

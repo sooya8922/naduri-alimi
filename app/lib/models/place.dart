@@ -17,6 +17,7 @@ class Place {
   final String exp; // 체험 내용 요약
   final String rest; // 휴무일
   final String parking; // 주차 안내 원문 (빈 문자열 가능)
+  final String naver; // 네이버 쇼핑커넥트 입장권 링크(수동 매핑, 대부분 빈 문자열)
   final int score;
 
   const Place({
@@ -34,6 +35,7 @@ class Place {
     required this.exp,
     required this.rest,
     required this.parking,
+    required this.naver,
     required this.score,
   });
 
@@ -58,8 +60,9 @@ class Place {
         age: (j['age'] ?? '') as String,
         exp: (j['exp'] ?? '') as String,
         rest: (j['rest'] ?? '') as String,
-        // 구 places.json(v0.2 데이터)엔 parking이 없음 → 빈 값(전방호환)
+        // 구 places.json(v0.2 데이터)엔 parking/naver가 없음 → 빈 값(전방호환)
         parking: (j['parking'] ?? '') as String,
+        naver: (j['naver'] ?? '') as String,
         score: (j['score'] ?? 0) as int,
       );
 }
