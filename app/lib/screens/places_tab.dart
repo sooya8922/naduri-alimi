@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../logic/affiliate_links.dart';
 import '../logic/map_links.dart';
 import '../models/place.dart';
 import '../services/places_service.dart';
@@ -235,6 +236,16 @@ class _PlaceCard extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
+                  icon: const Icon(Icons.confirmation_number_outlined),
+                  label: const Text('입장권·할인 보기 (마이리얼트립)'),
+                  onPressed: () => launchUrl(Uri.parse(buildMrtSearchLink(p.title)),
+                      mode: LaunchMode.externalApplication),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
                   icon: const Icon(Icons.search),
                   label: const Text('네이버에서 검색'),
                   // TourAPI엔 홈페이지가 목록에 없어(추가 호출 필요) 검색 링크가 실용적 대안
