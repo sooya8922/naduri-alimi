@@ -16,6 +16,7 @@ class Place {
   final String age; // 체험가능연령 원문('6세 이상' 등)
   final String exp; // 체험 내용 요약
   final String rest; // 휴무일
+  final String parking; // 주차 안내 원문 (빈 문자열 가능)
   final int score;
 
   const Place({
@@ -32,6 +33,7 @@ class Place {
     required this.age,
     required this.exp,
     required this.rest,
+    required this.parking,
     required this.score,
   });
 
@@ -56,6 +58,8 @@ class Place {
         age: (j['age'] ?? '') as String,
         exp: (j['exp'] ?? '') as String,
         rest: (j['rest'] ?? '') as String,
+        // 구 places.json(v0.2 데이터)엔 parking이 없음 → 빈 값(전방호환)
+        parking: (j['parking'] ?? '') as String,
         score: (j['score'] ?? 0) as int,
       );
 }

@@ -137,20 +137,24 @@ def base_score(r):
     return 0, ""
 
 
+CACHE_VER = 2  # 추출 필드가 늘면 올린다(v2: parking 추가) — 구버전 캐시는 예산 내에서 재조회
+
+
 def detail_intro(state, cid, ct, budget):
-    """detailIntro2 캐시 조회 — 유모차/체험연령/체험내용/휴무일.
+    """detailIntro2 캐시 조회 — 유모차/체험연령/체험내용/휴무일/주차.
     성공(내용이 비어도)만 캐시한다. 실패를 캐시하면 일시 장애(일일 쿼터 초과 등)가
     영구 빈값으로 굳는다 → 실패는 캐시 없이 다음 실행에서 재시도."""
     cache = state.setdefault("intro", {})
-    if cid in cache:
-        return cache[cid]
+    det = cache.get(cid)
+    if det is not None and (det.get("_v") == CACHE_VER or budget[0] <= 0):
+        return det  # 최신 캐시, 또는 구버전이지만 예산이 없어 그대로 사용
     if budget[0] <= 0:
         return None  # 예산 소진 — 캐시 안 함(다음 실행에서 재시도)
     budget[0] -= 1
     try:
         b = get("detailIntro2", contentId=cid, contentTypeId=ct)
         row = (items_of(b) or [{}])[0]
-        det = {}
+        det = {"_v": CACHE_VER}
         for k, v in row.items():
             v = clean(v)
             if not v:
@@ -164,6 +168,8 @@ def detail_intro(state, cid, ct, budget):
                 det["exp"] = v
             elif "restdate" in lk:
                 det["rest"] = v
+            elif lk.startswith("parking") and "fee" not in lk:
+                det["parking"] = v  # 주차 안내 원문('가능 (소형 1000대)' 등)
         cache[cid] = det
         return det
     except Exception:
@@ -225,6 +231,7 @@ def main():
             "age": det.get("age", ""),
             "exp": det.get("exp", "")[:120],
             "rest": det.get("rest", "")[:80],
+            "parking": det.get("parking", "")[:80],
             "score": score,
         })
 

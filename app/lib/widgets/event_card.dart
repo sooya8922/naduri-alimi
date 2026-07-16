@@ -129,21 +129,36 @@ class EventCard extends StatelessWidget {
               // 위치 보기 — 좌표 있는 행사만(약 99%). '갈 만한 거리인지' 판단 보조.
               if (e.hasLocation) ...[
                 const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.place_outlined),
-                    label: const Text('위치 보기'),
-                    onPressed: () async {
-                      // hasLocation 가드로 non-null 보장
-                      final ok = await launchMap(e.lng!, e.lat!);
-                      if (!ok && ctx.mounted) {
-                        ScaffoldMessenger.of(ctx).showSnackBar(
-                            const SnackBar(content: Text('지도 앱을 열 수 없어요')));
-                      }
-                    },
+                Row(children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.directions_bus_outlined),
+                      label: const Text('길찾기'),
+                      onPressed: () async {
+                        // hasLocation 가드로 non-null 보장
+                        final ok = await launchRoute(e.lng!, e.lat!, e.place.isNotEmpty ? e.place : e.title);
+                        if (!ok && ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(content: Text('지도 앱을 열 수 없어요')));
+                        }
+                      },
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.place_outlined),
+                      label: const Text('위치 보기'),
+                      onPressed: () async {
+                        final ok = await launchMap(e.lng!, e.lat!);
+                        if (!ok && ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(content: Text('지도 앱을 열 수 없어요')));
+                        }
+                      },
+                    ),
+                  ),
+                ]),
               ],
             ],
           ),

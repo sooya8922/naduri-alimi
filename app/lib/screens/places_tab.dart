@@ -229,6 +229,7 @@ class _PlaceCard extends StatelessWidget {
               if (p.age.isNotEmpty) Text('연령: ${p.age}', style: const TextStyle(fontSize: 13)),
               if (p.exp.isNotEmpty) Text('체험: ${p.exp}', style: const TextStyle(fontSize: 13), maxLines: 3, overflow: TextOverflow.ellipsis),
               if (p.rest.isNotEmpty) Text('휴무: ${p.rest}', style: const TextStyle(fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
+              if (p.parking.isNotEmpty) Text('주차: ${p.parking}', style: const TextStyle(fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
               if (p.strollerOk) const Text('유모차 대여 가능', style: TextStyle(fontSize: 13)),
               const SizedBox(height: 16),
               SizedBox(
@@ -244,20 +245,35 @@ class _PlaceCard extends StatelessWidget {
               ),
               if (p.hasLocation) ...[
                 const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.place_outlined),
-                    label: const Text('위치 보기'),
-                    onPressed: () async {
-                      final ok = await launchMap(p.lng!, p.lat!);
-                      if (!ok && ctx.mounted) {
-                        ScaffoldMessenger.of(ctx).showSnackBar(
-                            const SnackBar(content: Text('지도 앱을 열 수 없어요')));
-                      }
-                    },
+                Row(children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.directions_bus_outlined),
+                      label: const Text('길찾기'),
+                      onPressed: () async {
+                        final ok = await launchRoute(p.lng!, p.lat!, p.title);
+                        if (!ok && ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(content: Text('지도 앱을 열 수 없어요')));
+                        }
+                      },
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.place_outlined),
+                      label: const Text('위치 보기'),
+                      onPressed: () async {
+                        final ok = await launchMap(p.lng!, p.lat!);
+                        if (!ok && ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(content: Text('지도 앱을 열 수 없어요')));
+                        }
+                      },
+                    ),
+                  ),
+                ]),
               ],
             ],
           ),

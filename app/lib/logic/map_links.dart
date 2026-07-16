@@ -16,10 +16,26 @@ List<String> buildMapCandidates(double lng, double lat) {
   ];
 }
 
+/// 대중교통 길찾기 후보 URL 목록. 우선순위는 위치 보기와 동일(카카오→네이버→구글 웹).
+/// 네이버는 도착지 이름이 필수라 인코딩해 넣는다(특수문자는 Uri.encodeQueryComponent가 처리).
+List<String> buildRouteCandidates(double lng, double lat, String name) {
+  final n = Uri.encodeQueryComponent(name.isEmpty ? '나들이 목적지' : name);
+  return [
+    'kakaomap://route?ep=$lat,$lng&by=PUBLICTRANSIT',
+    'nmap://route/public?dlat=$lat&dlng=$lng&dname=$n&appname=com.sooya8922.naduri',
+    'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=transit',
+  ];
+}
+
 /// 좌표를 지도로 연다. 각 시도를 try-catch로 감싸 canLaunchUrl/launchUrl이 예외를 던져도
 /// (앱 업데이트 중 등) 조용히 다음 후보로 폴백. 세 후보 전부 실패 시 false.
-Future<bool> launchMap(double lng, double lat) async {
-  final candidates = buildMapCandidates(lng, lat);
+Future<bool> launchMap(double lng, double lat) => _launchFirst(buildMapCandidates(lng, lat));
+
+/// 대중교통 길찾기를 연다. 폴백 규칙은 launchMap과 동일.
+Future<bool> launchRoute(double lng, double lat, String name) =>
+    _launchFirst(buildRouteCandidates(lng, lat, name));
+
+Future<bool> _launchFirst(List<String> candidates) async {
   for (var i = 0; i < candidates.length; i++) {
     final uri = Uri.parse(candidates[i]);
     final isLast = i == candidates.length - 1;
