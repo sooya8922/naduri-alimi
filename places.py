@@ -138,7 +138,9 @@ def base_score(r):
 
 
 def detail_intro(state, cid, ct, budget):
-    """detailIntro2 캐시 조회 — 유모차/체험연령/체험내용/휴무일. 실패는 빈 dict 캐시(재시도 안 함)."""
+    """detailIntro2 캐시 조회 — 유모차/체험연령/체험내용/휴무일.
+    성공(내용이 비어도)만 캐시한다. 실패를 캐시하면 일시 장애(일일 쿼터 초과 등)가
+    영구 빈값으로 굳는다 → 실패는 캐시 없이 다음 실행에서 재시도."""
     cache = state.setdefault("intro", {})
     if cid in cache:
         return cache[cid]
@@ -165,7 +167,6 @@ def detail_intro(state, cid, ct, budget):
         cache[cid] = det
         return det
     except Exception:
-        cache[cid] = {}
         return {}
 
 
