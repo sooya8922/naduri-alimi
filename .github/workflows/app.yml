@@ -1,0 +1,60 @@
+name: app-ci
+
+# 앱 코드가 바뀔 때만 실행. analyze + test(라이브 feed 통합테스트 포함) + APK 빌드.
+# 로컬(잠긴 회사PC)에 Android SDK가 없어서 APK 빌드/배포 검증은 여기서 한다. (chwiso 패턴)
+on:
+  push:
+    paths:
+      - "app/**"
+      - ".github/workflows/app.yml"
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.4"
+          channel: stable
+          cache: true
+
+      - name: Deps
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test (라이브 feed 통합 포함)
+        run: flutter test
+
+      - name: Restore signing keystore (고정 업로드키 — 업데이트 설치 호환)
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > /tmp/upload-keystore.p12
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+
+      - name: Build APK (release, 고정키 서명)
+        run: flutter build apk --release
+        env:
+          KEYSTORE_PATH: /tmp/upload-keystore.p12
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+
+      - name: Verify signature (고정키 CN 확인 — 임시키로 새면 여기서 실패)
+        run: |
+          APKSIGNER=$(ls $ANDROID_HOME/build-tools/*/apksigner | tail -1)
+          $APKSIGNER verify --print-certs build/app/outputs/flutter-apk/app-release.apk | head -3
+          $APKSIGNER verify --print-certs build/app/outputs/flutter-apk/app-release.apk | grep -q "Naduri Alimi"
+          echo "✅ 고정 업로드키 서명 확인"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: naduri-alimi-apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14

@@ -1,0 +1,20 @@
+# Flutter/Dart
+app/.dart_tool/
+app/build/
+app/.flutter-plugins*
+app/.packages
+app/android/.gradle/
+app/android/local.properties
+app/android/app/.cxx/
+
+# IDE
+.idea/
+*.iml
+
+# 로컬 비밀 (키스토어/키는 GH Secrets로만)
+*.p12
+*.jks
+.signing/
+
+# OMC 세션 상태
+.omc/

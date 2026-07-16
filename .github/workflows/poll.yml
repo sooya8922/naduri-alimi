@@ -1,0 +1,41 @@
+name: poll-events
+
+# 하루 2회 수집 (서울시 일배치 + KOPIS/KCISA 수시 등록 — 나들이 알림은 이 주기로 충분).
+# KST 06:30 / 16:30. GH cron 지연/스킵 허용.
+on:
+  schedule:
+    - cron: "30 21,7 * * *"
+  workflow_dispatch: {}   # 수동 실행 버튼도 제공
+
+# 동시 실행 방지 (state.json 커밋 충돌 방지)
+concurrency:
+  group: poll
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # 결과를 레포에 커밋하기 위해 필요
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Poll 4 sources → feed.json
+        env:
+          SEOUL_API_KEY: ${{ secrets.SEOUL_API_KEY }}
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          KOPIS_KEY: ${{ secrets.KOPIS_KEY }}
+        run: python3 poller.py   # sanity 실패 시 exit 1 → 커밋 안 됨
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add feed.json state.json
+          git commit -m "poll $(date -u +%FT%TZ)" || echo "변화 없음 - 커밋 스킵"
+          git push || echo "push 실패 (다음 회차에 재시도)"

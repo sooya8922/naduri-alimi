@@ -1,0 +1,54 @@
+name: release
+
+# v* 태그 푸시 → 고정키 서명 APK를 빌드해 GitHub Release에 첨부.
+# 폰에서 릴리스 페이지의 APK를 받아 바로 설치하는 배포 경로 (chwiso/ttareungi와 동일).
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write   # 릴리스 생성
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.4"
+          channel: stable
+          cache: true
+
+      - name: Deps
+        run: flutter pub get
+
+      - name: Restore signing keystore
+        run: echo "$KEYSTORE_BASE64" | base64 -d > /tmp/upload-keystore.p12
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+
+      - name: Build APK (release, 고정키 서명)
+        run: flutter build apk --release
+        env:
+          KEYSTORE_PATH: /tmp/upload-keystore.p12
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+
+      - name: Verify signature
+        run: |
+          APKSIGNER=$(ls $ANDROID_HOME/build-tools/*/apksigner | tail -1)
+          $APKSIGNER verify --print-certs build/app/outputs/flutter-apk/app-release.apk | grep -q "Naduri Alimi"
+
+      - name: Rename APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk /tmp/naduri-alimi-${{ github.ref_name }}.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "나들이 알리미 ${{ github.ref_name }}"
+          files: /tmp/naduri-alimi-${{ github.ref_name }}.apk
+          generate_release_notes: true
