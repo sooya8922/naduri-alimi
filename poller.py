@@ -336,7 +336,8 @@ def fetch_fstvl(today, horizon):
     while True:
         q = urllib.parse.urlencode({"serviceKey": DATAGO_KEY, "pageNo": page,
                                     "numOfRows": 800, "type": "json"})
-        j = get_json(f"http://api.data.go.kr/openapi/tn_pubr_public_cltur_fstvl_api?{q}")
+        # https 필수: GHA 러너에서 http는 URLError (2026-07-16 첫 실행 실측)
+        j = get_json(f"https://api.data.go.kr/openapi/tn_pubr_public_cltur_fstvl_api?{q}")
         body = j["response"]["body"]
         rows = body.get("items") or []
         total = int(body.get("totalCount") or 0)
