@@ -1,7 +1,7 @@
 name: naduri_alimi
 description: "나들이 알리미 — 아이와 주말 나들이, 새 행사 푸시 알림"
 publish_to: "none"
-version: 0.5.0+5
+version: 0.6.0+6
 
 environment:
   sdk: ^3.5.0

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../logic/affiliate_links.dart';
 import '../logic/map_links.dart';
 import '../models/place.dart';
 import '../services/places_service.dart';
@@ -233,15 +232,18 @@ class _PlaceCard extends StatelessWidget {
               if (p.parking.isNotEmpty) Text('주차: ${p.parking}', style: const TextStyle(fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
               if (p.strollerOk) const Text('유모차 대여 가능', style: TextStyle(fontSize: 13)),
               const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  icon: const Icon(Icons.confirmation_number_outlined),
-                  label: const Text('입장권·할인 보기 (마이리얼트립)'),
-                  onPressed: () => launchUrl(Uri.parse(buildMrtSearchLink(p.title)),
-                      mode: LaunchMode.externalApplication),
+              // 마이리얼트립 — 파이프라인이 상품 존재를 확인한 장소만(정식 마이링크).
+              // 없는 곳은 버튼 자체를 숨긴다("눌렀는데 빈 검색" 방지 — 부천천문과학관 케이스).
+              if (p.mrt.isNotEmpty)
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    icon: const Icon(Icons.confirmation_number_outlined),
+                    label: const Text('입장권·할인 보기 (마이리얼트립)'),
+                    onPressed: () => launchUrl(Uri.parse(p.mrt),
+                        mode: LaunchMode.externalApplication),
+                  ),
                 ),
-              ),
               // 네이버 입장권 — 수동 매핑된 대표 명소만 노출(naver_links.json → places.json)
               if (p.naver.isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -267,12 +269,13 @@ class _PlaceCard extends StatelessWidget {
                       mode: LaunchMode.externalApplication),
                 ),
               ),
-              // 대가성 표시(공정위) — 제휴 링크가 있는 시트에 상시 노출
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text('입장권 링크는 제휴 링크로, 구매 시 수수료를 받을 수 있어요',
-                    style: TextStyle(fontSize: 11, color: Theme.of(ctx).colorScheme.onSurfaceVariant)),
-              ),
+              // 대가성 표시(공정위) — 제휴 링크가 실제로 노출되는 시트에만
+              if (p.mrt.isNotEmpty || p.naver.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text('입장권 링크는 제휴 링크로, 구매 시 수수료를 받을 수 있어요',
+                      style: TextStyle(fontSize: 11, color: Theme.of(ctx).colorScheme.onSurfaceVariant)),
+                ),
               if (p.hasLocation) ...[
                 const SizedBox(height: 8),
                 Row(children: [

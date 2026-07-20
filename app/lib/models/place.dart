@@ -18,6 +18,7 @@ class Place {
   final String rest; // 휴무일
   final String parking; // 주차 안내 원문 (빈 문자열 가능)
   final String naver; // 네이버 쇼핑커넥트 입장권 링크(수동 매핑, 대부분 빈 문자열)
+  final String mrt; // 마이리얼트립 정식 마이링크 — 관련 상품이 확인된 장소만 채워짐
   final int score;
 
   const Place({
@@ -36,6 +37,7 @@ class Place {
     required this.rest,
     required this.parking,
     required this.naver,
+    required this.mrt,
     required this.score,
   });
 
@@ -60,9 +62,10 @@ class Place {
         age: (j['age'] ?? '') as String,
         exp: (j['exp'] ?? '') as String,
         rest: (j['rest'] ?? '') as String,
-        // 구 places.json(v0.2 데이터)엔 parking/naver가 없음 → 빈 값(전방호환)
+        // 구 places.json엔 parking/naver/mrt가 없음 → 빈 값(전방호환)
         parking: (j['parking'] ?? '') as String,
         naver: (j['naver'] ?? '') as String,
+        mrt: (j['mrt'] ?? '') as String,
         score: (j['score'] ?? 0) as int,
       );
 }

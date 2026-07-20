@@ -34,6 +34,28 @@ void main() {
     expect(find.text('6세 이상'), findsOneWidget);
   });
 
+  testWidgets('마이리얼트립 버튼 — 상품 확인된 장소(mrt 有)에만 노출', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pump();
+    await tester.pump();
+
+    // 허브아일랜드(mrt 有) 상세 → 버튼 있음
+    await tester.tap(find.textContaining('허브아일랜드'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('입장권·할인 보기'), findsOneWidget);
+    expect(find.textContaining('제휴 링크'), findsOneWidget);
+    await tester.tapAt(const Offset(10, 10)); // 시트 닫기
+    await tester.pumpAndSettle();
+
+    // 어느 박물관(mrt 無) 상세 → 버튼/대가성 문구 없음
+    await tester.tap(find.text('과학·전시'));
+    await tester.pump();
+    await tester.tap(find.textContaining('어느 박물관'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('입장권·할인 보기'), findsNothing);
+    expect(find.textContaining('제휴 링크'), findsNothing);
+  });
+
   testWidgets('카테고리 그룹 필터 — 과학·전시 선택 시 박물관만', (tester) async {
     await tester.pumpWidget(app());
     await tester.pump();

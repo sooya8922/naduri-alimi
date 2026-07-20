@@ -176,6 +176,64 @@ def detail_intro(state, cid, ct, budget):
         return {}
 
 
+MRT_KEY = os.environ.get("MRT_API_KEY", "").strip() or (
+    open(os.path.expanduser("~/.mrt_api_key")).read().strip()
+    if os.path.exists(os.path.expanduser("~/.mrt_api_key")) else "")
+MRT_BASE = "https://partner-ext-api.myrealtrip.com"
+MRT_BUDGET = int(os.environ.get("MRT_BUDGET", "400"))  # 실행당 검색 호출 상한(레이트리밋 보호)
+MRT_TTL_DAYS = 45  # 상품 유무 재확인 주기
+
+
+def _mrt_post(path, body):
+    req = urllib.request.Request(MRT_BASE + path, data=json.dumps(body).encode(),
+                                 headers={"Authorization": f"Bearer {MRT_KEY}",
+                                          "Content-Type": "application/json"}, method="POST")
+    with urllib.request.urlopen(req, timeout=20) as r:
+        return json.loads(r.read())
+
+
+def _title_key(title):
+    """장소명 핵심 토큰 — 괄호/특수문자 제거 후 가장 긴 토큰(3자 이상)."""
+    t = re.sub(r"[\[\(【〈<].*?[\]\)】〉>]", " ", title)
+    toks = [w for w in re.split(r"[^0-9a-zA-Z가-힣]+", t) if len(w) >= 3]
+    return max(toks, key=len) if toks else clean(title)
+
+
+def mrt_link(state, title, today, budget):
+    """장소명으로 MRT 상품 검색 → 관련 상품이 있으면 정식 마이링크 생성(캐시).
+    ⚠ 검색 API는 직접 매칭이 없으면 느슨한 매칭으로 수천 건을 돌려준다(렛츠런파크 3,703건 실측,
+    첫 상품이 바르셀로나 투어) → totalCount가 아니라 상위 결과에 핵심 토큰 포함 여부로 판정."""
+    if not MRT_KEY:
+        return ""
+    cache = state.setdefault("mrt", {})
+    c = cache.get(title)
+    if c is not None and (today <= c.get("until", "")):
+        return c.get("link", "")
+    if budget[0] <= 0:
+        return (c or {}).get("link", "")  # 예산 소진 — 구캐시 유지
+    budget[0] -= 1
+    until = (datetime.strptime(today, "%Y-%m-%d") + timedelta(days=MRT_TTL_DAYS)).strftime("%Y-%m-%d")
+    try:
+        res = _mrt_post("/v1/products/tna/search", {"keyword": title})
+        items = (res.get("data") or {}).get("items") or []
+        key = _title_key(title)
+        relevant = any(key in clean(i.get("itemName", "")) + clean(i.get("description", ""))
+                       for i in items[:10])
+        link = ""
+        if relevant:
+            link = (c or {}).get("link", "")  # 마이링크는 영구 — 이미 있으면 재사용(레코드 무한증식 방지)
+            if not link:
+                q = urllib.parse.quote(title)
+                mk = _mrt_post("/v1/mylink",
+                               {"targetUrl": f"https://www.myrealtrip.com/search?q={q}"})
+                link = (mk.get("data") or {}).get("mylink", "")
+        cache[title] = {"link": link, "until": until}
+        return link
+    except Exception as ex:
+        print(f"[warn] mrt {title[:20]}: {type(ex).__name__}", file=sys.stderr)
+        return (c or {}).get("link", "")  # 실패는 캐시 안 함(다음 실행 재시도)
+
+
 def load_naver_links():
     """naver_links.json — 장소명 부분문자열 → 네이버 쇼핑커넥트 링크(수동 매핑). '_' 키는 주석."""
     try:
@@ -187,11 +245,13 @@ def load_naver_links():
 
 def main():
     now = datetime.now(KST).replace(tzinfo=None)
+    today = now.strftime("%Y-%m-%d")
     try:
         state = json.load(open(STATE_PATH, encoding="utf-8"))
     except Exception:
         state = {}
     naver_links = load_naver_links()
+    mrt_budget = [MRT_BUDGET]
 
     rows = fetch_lists()
     print(f"목록 수집: {len(rows)}건 (지역 3 × 타입 3)")
@@ -249,10 +309,16 @@ def main():
     # 품질 컷: 스코어 내림차순 정렬. 이미지 없는 곳은 뒤로(카드 UX).
     places.sort(key=lambda p: (-p["score"], not p["img"], p["title"]))
 
+    # MRT 보강은 정렬 '후' — 예산을 대표 명소(고스코어)부터 쓴다.
+    # (수집 루프 안에서 부르면 이름순 잡다한 곳이 예산을 소진해 에버랜드가 못 받는 사고 — 1차 실행 실측)
+    for p in places:
+        p["mrt"] = mrt_link(state, p["title"], today, mrt_budget)
+
     out = {
         "version": 1,
         "generated_at": now.strftime("%Y-%m-%d %H:%M:%S"),
         "counts": {"places": len(places),
+                   "mrt": sum(1 for p in places if p["mrt"]),
                    **{a: sum(1 for p in places if p["area"] == a) for a in REGIONS.values()}},
         "places": places,
     }

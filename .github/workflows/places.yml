@@ -27,6 +27,7 @@ jobs:
       - name: Refresh places.json
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          MRT_API_KEY: ${{ secrets.MRT_API_KEY }}   # 마이리얼트립 상품유무 판정+마이링크
         run: python3 places.py   # sanity 실패 시 exit 1 → 커밋 안 됨
 
       - name: Commit results
