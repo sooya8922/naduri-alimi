@@ -192,20 +192,20 @@ def _mrt_post(path, body):
         return json.loads(r.read())
 
 
-def _title_key(title):
-    """장소명 핵심 토큰 — 괄호/특수문자 제거 후 가장 긴 토큰(3자 이상)."""
+def _title_tokens(title):
+    """장소명 유효 토큰들 — 괄호/특수문자 제거, 2자 이상."""
     t = re.sub(r"[\[\(【〈<].*?[\]\)】〉>]", " ", title)
-    toks = [w for w in re.split(r"[^0-9a-zA-Z가-힣]+", t) if len(w) >= 3]
-    return max(toks, key=len) if toks else clean(title)
+    return [w for w in re.split(r"[^0-9a-zA-Z가-힣]+", t) if len(w) >= 2]
 
 
 def mrt_link(state, title, today, budget):
-    """장소명으로 MRT 상품 검색 → 관련 상품이 있으면 정식 마이링크 생성(캐시).
-    ⚠ 검색 API는 직접 매칭이 없으면 느슨한 매칭으로 수천 건을 돌려준다(렛츠런파크 3,703건 실측,
-    첫 상품이 바르셀로나 투어) → totalCount가 아니라 상위 결과에 핵심 토큰 포함 여부로 판정."""
+    """장소명으로 MRT 상품 검색 → 진짜 매칭 상품이 있으면 '그 상품 페이지'로 마이링크 생성(캐시).
+    ⚠ 함정 2중(실측): ①직접 매칭이 없으면 느슨한 매칭 수천 건(렛츠런파크→바르셀로나 투어)
+    ②API 검색과 웹사이트 검색 결과가 달라 검색 페이지로 보내면 '살 게 없는' 랜딩이 됨
+    (평화누리 캠핑장 사례) → 판정은 '모든 토큰이 상품명에 포함', 링크는 상품 직행."""
     if not MRT_KEY:
         return ""
-    cache = state.setdefault("mrt", {})
+    cache = state.setdefault("mrt2", {})  # v2: 상품직행 방식 — 구(검색링크) 캐시 'mrt'는 폐기
     c = cache.get(title)
     if c is not None and (today <= c.get("until", "")):
         return c.get("link", "")
@@ -216,18 +216,24 @@ def mrt_link(state, title, today, budget):
     try:
         res = _mrt_post("/v1/products/tna/search", {"keyword": title})
         items = (res.get("data") or {}).get("items") or []
-        key = _title_key(title)
-        relevant = any(key in clean(i.get("itemName", "")) + clean(i.get("description", ""))
-                       for i in items[:10])
+        toks = _title_tokens(title)
+        cands = [i for i in items[:10]
+                 if toks and all(t in clean(i.get("itemName", "")) for t in toks)
+                 and i.get("productUrl")]
+        # 동률이면 '입장권/이용권' 상품 우선(셔틀버스보다 입장권이 버튼 라벨에 부합)
+        match = next((i for i in cands
+                      if "입장권" in (i.get("category", "") + i.get("itemName", ""))
+                      or "이용권" in i.get("itemName", "")), cands[0] if cands else None)
         link = ""
-        if relevant:
-            link = (c or {}).get("link", "")  # 마이링크는 영구 — 이미 있으면 재사용(레코드 무한증식 방지)
+        if match is not None:
+            # 같은 상품이면 기존 마이링크 재사용(레코드 무한증식 방지)
+            if c is not None and c.get("product") == match["productUrl"]:
+                link = c.get("link", "")
             if not link:
-                q = urllib.parse.quote(title)
-                mk = _mrt_post("/v1/mylink",
-                               {"targetUrl": f"https://www.myrealtrip.com/search?q={q}"})
+                mk = _mrt_post("/v1/mylink", {"targetUrl": match["productUrl"]})
                 link = (mk.get("data") or {}).get("mylink", "")
-        cache[title] = {"link": link, "until": until}
+        cache[title] = {"link": link, "until": until,
+                        "product": match["productUrl"] if match else ""}
         return link
     except Exception as ex:
         print(f"[warn] mrt {title[:20]}: {type(ex).__name__}", file=sys.stderr)
