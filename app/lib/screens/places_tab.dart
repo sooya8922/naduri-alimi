@@ -244,7 +244,19 @@ class _PlaceCard extends StatelessWidget {
                         mode: LaunchMode.externalApplication),
                   ),
                 ),
-              // 네이버 입장권 — 수동 매핑된 대표 명소만 노출(naver_links.json → places.json)
+              // 쿠팡/네이버 입장권 — 수동 매핑된 곳만 노출(coupang_links/naver_links.json → places.json)
+              if (p.coupang.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.tonalIcon(
+                    icon: const Icon(Icons.confirmation_number_outlined),
+                    label: const Text('쿠팡 입장권'),
+                    onPressed: () => launchUrl(Uri.parse(p.coupang),
+                        mode: LaunchMode.externalApplication),
+                  ),
+                ),
+              ],
               if (p.naver.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 SizedBox(
@@ -270,7 +282,7 @@ class _PlaceCard extends StatelessWidget {
                 ),
               ),
               // 대가성 표시(공정위) — 제휴 링크가 실제로 노출되는 시트에만
-              if (p.mrt.isNotEmpty || p.naver.isNotEmpty)
+              if (p.mrt.isNotEmpty || p.naver.isNotEmpty || p.coupang.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text('입장권 링크는 제휴 링크로, 구매 시 수수료를 받을 수 있어요',

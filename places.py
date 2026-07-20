@@ -262,6 +262,12 @@ def load_naver_links():
     return _load_link_map("naver_links.json")
 
 
+def load_coupang_links():
+    """쿠팡파트너스 수동 매핑 — 대시보드에서 발급한 link.coupang.com 링크.
+    (Open API는 최종승인 후에나 열리므로 그때까지는 수동 매핑이 유일한 경로)"""
+    return _load_link_map("coupang_links.json")
+
+
 def load_mrt_overrides():
     """자동 매칭이 상품명 불일치로 못 잡는 롱테일(임진각 곤돌라 등) 수동 마이링크."""
     return _load_link_map("mrt_overrides.json")
@@ -275,6 +281,7 @@ def main():
     except Exception:
         state = {}
     naver_links = load_naver_links()
+    coupang_links = load_coupang_links()
     mrt_budget = [MRT_BUDGET]
 
     rows = fetch_lists()
@@ -327,6 +334,7 @@ def main():
             "rest": det.get("rest", "")[:80],
             "parking": det.get("parking", "")[:80],
             "naver": next((v for k, v in naver_links.items() if k in title), ""),
+            "coupang": next((v for k, v in coupang_links.items() if k in title), ""),
             "score": score,
         })
 

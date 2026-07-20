@@ -14,7 +14,8 @@ const samplePlaces = '''
      "cat": "테마파크", "img": "http://img", "addr": "경기도 포천시 신북면",
      "lat": 38.0, "lng": 127.2, "stroller": "있음", "age": "6세 이상",
      "exp": "허브비누 만들기", "rest": "매주 수요일", "parking": "가능 (소형 1000대)",
-     "naver": "https://naver.me/xM5u4eux", "mrt": "https://myrealt.rip/fFdF4b", "score": 5},
+     "naver": "https://naver.me/xM5u4eux", "coupang": "https://link.coupang.com/a/test",
+     "mrt": "https://myrealt.rip/fFdF4b", "score": 5},
     {"id": "2", "title": "어느 박물관", "area": "경기", "sigungu": "수원시",
      "cat": "박물관", "img": "", "addr": "경기도 수원시",
      "lat": null, "lng": null, "stroller": "", "age": "", "exp": "", "rest": "", "score": 2}
@@ -63,9 +64,11 @@ void main() {
     final p = Places.fromJson(json.decode(samplePlaces) as Map<String, dynamic>);
     expect(p.places[0].parking, '가능 (소형 1000대)');
     expect(p.places[0].naver, startsWith('https://naver.me/'));
+    expect(p.places[0].coupang, startsWith('https://link.coupang.com/'));
     expect(p.places[0].mrt, startsWith('https://myrealt.rip/'));
     expect(p.places[1].parking, ''); // 필드 없는 항목 → 빈 문자열
     expect(p.places[1].naver, '');
+    expect(p.places[1].coupang, '');
     expect(p.places[1].mrt, '');
   });
 }
