@@ -198,32 +198,41 @@ def _title_tokens(title):
     return [w for w in re.split(r"[^0-9a-zA-Z가-힣]+", t) if len(w) >= 2]
 
 
-def mrt_link(state, title, today, budget):
+def mrt_link(state, title, sigungu, today, budget):
     """장소명으로 MRT 상품 검색 → 진짜 매칭 상품이 있으면 '그 상품 페이지'로 마이링크 생성(캐시).
-    ⚠ 함정 2중(실측): ①직접 매칭이 없으면 느슨한 매칭 수천 건(렛츠런파크→바르셀로나 투어)
-    ②API 검색과 웹사이트 검색 결과가 달라 검색 페이지로 보내면 '살 게 없는' 랜딩이 됨
-    (평화누리 캠핑장 사례) → 판정은 '모든 토큰이 상품명에 포함', 링크는 상품 직행."""
+    ⚠ 함정 3중(실측): ①직접 매칭이 없으면 느슨한 매칭 수천 건(렛츠런파크→바르셀로나 투어)
+    ②API 검색과 웹사이트 검색 결과가 달라 검색 페이지로 보내면 '살 게 없는' 랜딩(평화누리 캠핑장)
+    ③정확한 장소명이 오히려 0건이 되는 토크나이저 구멍('허브아일랜드' 0건, '포천 허브아일랜드' 2건)
+    → 판정은 '모든 토큰이 상품명에 포함', 링크는 상품 직행, 검색은 지역명 폴백 포함."""
     if not MRT_KEY:
         return ""
-    cache = state.setdefault("mrt2", {})  # v2: 상품직행 방식 — 구(검색링크) 캐시 'mrt'는 폐기
+    cache = state.setdefault("mrt2", {})
     c = cache.get(title)
     if c is not None and (today <= c.get("until", "")):
         return c.get("link", "")
     if budget[0] <= 0:
         return (c or {}).get("link", "")  # 예산 소진 — 구캐시 유지
-    budget[0] -= 1
     until = (datetime.strptime(today, "%Y-%m-%d") + timedelta(days=MRT_TTL_DAYS)).strftime("%Y-%m-%d")
+    region = re.sub(r"[시군구]$", "", sigungu)  # 포천시 → 포천
+    queries = [title] + ([f"{region} {title}"] if region else [])
     try:
-        res = _mrt_post("/v1/products/tna/search", {"keyword": title})
-        items = (res.get("data") or {}).get("items") or []
         toks = _title_tokens(title)
-        cands = [i for i in items[:10]
-                 if toks and all(t in clean(i.get("itemName", "")) for t in toks)
-                 and i.get("productUrl")]
-        # 동률이면 '입장권/이용권' 상품 우선(셔틀버스보다 입장권이 버튼 라벨에 부합)
-        match = next((i for i in cands
-                      if "입장권" in (i.get("category", "") + i.get("itemName", ""))
-                      or "이용권" in i.get("itemName", "")), cands[0] if cands else None)
+        match = None
+        for q in queries:
+            if budget[0] <= 0:
+                break
+            budget[0] -= 1
+            res = _mrt_post("/v1/products/tna/search", {"keyword": q})
+            items = (res.get("data") or {}).get("items") or []
+            cands = [i for i in items[:10]
+                     if toks and all(t in clean(i.get("itemName", "")) for t in toks)
+                     and i.get("productUrl")]
+            # 동률이면 '입장권/이용권' 상품 우선(셔틀버스보다 입장권이 버튼 라벨에 부합)
+            match = next((i for i in cands
+                          if "입장권" in (i.get("category", "") + i.get("itemName", ""))
+                          or "이용권" in i.get("itemName", "")), cands[0] if cands else None)
+            if match is not None:
+                break
         link = ""
         if match is not None:
             # 같은 상품이면 기존 마이링크 재사용(레코드 무한증식 방지)
@@ -240,13 +249,22 @@ def mrt_link(state, title, today, budget):
         return (c or {}).get("link", "")  # 실패는 캐시 안 함(다음 실행 재시도)
 
 
-def load_naver_links():
-    """naver_links.json — 장소명 부분문자열 → 네이버 쇼핑커넥트 링크(수동 매핑). '_' 키는 주석."""
+def _load_link_map(fname):
+    """장소명 부분문자열 → 링크 수동 매핑 파일 로더. '_' 키는 주석."""
     try:
-        j = json.load(open(os.path.join(BASE_DIR, "naver_links.json"), encoding="utf-8"))
+        j = json.load(open(os.path.join(BASE_DIR, fname), encoding="utf-8"))
         return {k: v for k, v in j.items() if not k.startswith("_") and str(v).startswith("http")}
     except Exception:
         return {}
+
+
+def load_naver_links():
+    return _load_link_map("naver_links.json")
+
+
+def load_mrt_overrides():
+    """자동 매칭이 상품명 불일치로 못 잡는 롱테일(임진각 곤돌라 등) 수동 마이링크."""
+    return _load_link_map("mrt_overrides.json")
 
 
 def main():
@@ -317,8 +335,10 @@ def main():
 
     # MRT 보강은 정렬 '후' — 예산을 대표 명소(고스코어)부터 쓴다.
     # (수집 루프 안에서 부르면 이름순 잡다한 곳이 예산을 소진해 에버랜드가 못 받는 사고 — 1차 실행 실측)
+    mrt_overrides = load_mrt_overrides()
     for p in places:
-        p["mrt"] = mrt_link(state, p["title"], today, mrt_budget)
+        p["mrt"] = (mrt_link(state, p["title"], p["sigungu"], today, mrt_budget)
+                    or next((v for k, v in mrt_overrides.items() if k in p["title"]), ""))
 
     out = {
         "version": 1,
